@@ -68,45 +68,85 @@ public class Raytracer : MonoBehaviour
             Render();
         }
     }
-
     Color Trace(Ray ray, int depth)
     {
-        if(depth >= maxRecursionDepth)
+        // exit if depth is greater than max depth
+        if (depth >= maxRecursionDepth)
         {
             return backgroundColor;
         }
-        if(showRaycasts)
+
+        // show camera rays if enabled
+        if (showRaycasts)
         {
             Debug.DrawRay(camera.transform.position, ray.direction * 1000, Color.cyan);
         }
+
         RaycastHit obj;
-        if(!Physics.Raycast(ray: ray, hitInfo: out obj, maxDistance: Mathf.Infinity))
+
+        // return background color if nothing is hit
+        if (!Physics.Raycast(ray: ray, hitInfo: out obj, maxDistance: Mathf.Infinity))
         {
             return backgroundColor;
         }
+
+        // get properties of raytraced material
         RaytracedMaterialProperties properties = obj.transform.GetComponent<RaytracedMaterialProperties>();
-        if(properties!=null)
+
+        // render with properties
+        if (properties != null)
         {
             Color surfaceColor = (properties.surfaceColor * ComputeLighting(obj.point, obj.normal, -ray.direction, properties.specular)) * (1 - properties.transparency);
 
-            Renderer renderer = obj.transform.GetComponent<Renderer>();
-            if (renderer != null && renderer.sharedMaterial.mainTexture != null)
+            if (properties.transparency > 0 || properties.reflectivity > 0)
             {
-                Texture2D texture = renderer.material.mainTexture as Texture2D;
-                Vector2 textureCoord = obj.textureCoord;
-                Color texelColor = texture.GetPixelBilinear(textureCoord.x, textureCoord.y);
-                surfaceColor *= texelColor;
+                float facingratio = -Vector3.Dot(ray.direction, obj.normal);
+
+                // change the mix value to tweak the effect
+                float fresneleffect = Mathf.Lerp(Mathf.Pow(1 - facingratio, 3), properties.reflectivity, 0.1f);
+
+                // compute reflection direction
+                Vector3 reflectionDir = ReflectRay(-ray.direction, obj.normal);
+                Ray reflectionRay = new Ray(obj.point + (obj.normal * bias), reflectionDir);
+                Color reflection = Trace(reflectionRay, depth + 1);
+
+                Color refraction = Color.black;
+                // if the sphere is also transparent compute refraction ray (transmission)
+                if (properties.transparency > 0)
+                {
+                    Vector3 refractionDir = RefractRay(properties.indexOfRefraction, obj.normal, -ray.direction);
+                    Ray refractionRay = new Ray(obj.point + (-obj.normal * bias), refractionDir);
+                    refraction = Trace(refractionRay, depth + 1);
+                }
+
+                Renderer renderer = obj.transform.GetComponent<Renderer>();
+                if (renderer != null && renderer.sharedMaterial.mainTexture != null)
+                {
+                    Texture2D texture = renderer.sharedMaterial.mainTexture as Texture2D;
+                    Vector2 textureCoord = obj.textureCoord;
+                    Color texelColor = texture.GetPixelBilinear(textureCoord.x, textureCoord.y);
+                    surfaceColor *= texelColor;
+                }
+
+                // the result is a mix of reflection and refraction (if the sphere is transparent)
+                surfaceColor += (
+                    reflection * fresneleffect +
+                    refraction * (1 - fresneleffect) * (properties.transparency));
             }
+
 
             surfaceColor.a = 1;
             return surfaceColor;
+
         }
         else
         {
+            // renders a blank color if material properties are missing
             return missingColor;
         }
-    }
 
+    }
+    
 
     float ComputeLighting(Vector3 P, Vector3 N, Vector3 V, float specular)
     {
