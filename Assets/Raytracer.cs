@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.Tracing;
 using TMPro;
 using Unity.VisualScripting;
+using UnityEditor;
 using UnityEditor.Experimental.GraphView;
 using UnityEditor.Rendering;
 using UnityEngine;
@@ -88,29 +89,16 @@ public class Raytracer : MonoBehaviour
 
         // render with properties
         if(properties != null){
+
+            
+
             Color surfaceColor = (properties.surfaceColor * ComputeLighting(obj.point, obj.normal, -ray.direction, properties.specular)) * (1 - properties.transparency);
 
-            /*
-            if(properties.transparency != 0){
-                Ray newRay = new Ray(obj.point + (-obj.normal * bias), RefractRay(properties.indexOfRefraction, obj.normal, -ray.direction));
-                surfaceColor = Color.Lerp(surfaceColor, Trace(newRay, depth + 1), properties.transparency);
-            }
-
-            if(properties.reflectivity != 0){
-                Vector3 dir = ReflectRay(-ray.direction, obj.normal);
-                Ray newRay = new Ray(obj.point + (dir.normalized * bias), dir);
-                //Debug.DrawRay(newRay.origin, newRay.direction, Color.magenta);
-                //surfaceColor = Color.Lerp(surfaceColor, Trace(newRay, depth + 1), properties.reflectivity);
-                Color reflectedColor = Trace(newRay, depth + 1);
-                surfaceColor = (surfaceColor * (1-properties.reflectivity)) + (reflectedColor * properties.reflectivity);
-            }
-            */
-
-            if (properties.transparency > 0 || properties.reflectivity > 0) {
+            if (properties.transparency > 0 || properties.smoothness > 0) {
                 float facingratio = -Vector3.Dot(ray.direction, obj.normal);
 
                 // change the mix value to tweak the effect
-                float fresneleffect = Mathf.Lerp(Mathf.Pow(1-facingratio, 3), properties.reflectivity, 0.1f);
+                float fresneleffect = Mathf.Lerp(Mathf.Pow(1-facingratio, 3), properties.smoothness, 0.1f);
 
                 // compute reflection direction
                 Vector3 reflectionDir = ReflectRay(-ray.direction, obj.normal);
@@ -120,7 +108,7 @@ public class Raytracer : MonoBehaviour
                 Color refraction = Color.black;
                 // if the sphere is also transparent compute refraction ray (transmission)
                 if (properties.transparency > 0) {
-                    Vector3 refractionDir = RefractRay(properties.indexOfRefraction, obj.normal, -ray.direction);
+                    Vector3 refractionDir = RefractRay(properties.IOR, obj.normal, -ray.direction);
                     Ray refractionRay = new Ray(obj.point + (-obj.normal * bias), refractionDir);
                     refraction = Trace(refractionRay, depth + 1);
             }

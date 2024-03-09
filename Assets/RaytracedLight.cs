@@ -7,7 +7,8 @@ public class RaytracedLight : MonoBehaviour
 {
     public static List<RaytracedLight> lights = new List<RaytracedLight>();
     public LightType type;
-    public float intensity = 1;
+    public float intensity = 1f;
+    public float range = 1f;
     void OnEnable(){
         lights.Add(this);
     }
@@ -17,7 +18,7 @@ public class RaytracedLight : MonoBehaviour
     }
 
     void Update(){
-        if(type == LightType.directional){
+        if(type == LightType.directional || type == LightType.spot){
             Debug.DrawRay(transform.position, transform.forward, Color.yellow);
         }
     }
@@ -26,6 +27,7 @@ public class RaytracedLight : MonoBehaviour
     public enum LightType{
         ambient,
         point,
+        spot,
         directional
     }
 }
