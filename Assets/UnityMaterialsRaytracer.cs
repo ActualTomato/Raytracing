@@ -1,16 +1,12 @@
 using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Transactions;
-using Unity.VisualScripting;
-using UnityEditor.SearchService;
 using UnityEngine;
-using UnityEngine.AI;
+
 
 public class UnityMaterialsRaytracer : MonoBehaviour
 {
     [Header("Config")]
     public Texture2D skybox;
+    [Tooltip("Only updates alternating rows every other frame, kind of like interlacing?")]
     public bool optimize = true;
     public Vector2Int resolution = new Vector2Int(160,90);
     public int maxTraceRecursionDepth = 5;
@@ -34,7 +30,7 @@ public class UnityMaterialsRaytracer : MonoBehaviour
         Physics.queriesHitBackfaces = true;
         mainCamera = Camera.main;
 
-        // Add all MeshCollider data for every object in scene to HashTable to prevent continuous access in GetInterpolatedNormals()
+        // Add all MeshCollider data for every object in scene to HashTable at the start to prevent continuous access in GetInterpolatedNormals()
         meshDatas = new Hashtable();
         foreach(MeshCollider collider in GameObject.FindObjectsOfType(typeof(MeshCollider))){
             MeshData data = new MeshData(collider);
@@ -57,11 +53,13 @@ public class UnityMaterialsRaytracer : MonoBehaviour
         */
 
 
+        // toggle if raytracer is enabled
         if(Input.GetKeyDown(KeyCode.Space)){
             int current = cameraBlitMaterial.GetInt("_isEnabled");
             cameraBlitMaterial.SetInt("_isEnabled", current == 1 ? 0 : 1);
         }
 
+        // toggle optimize
         if(Input.GetKeyDown(KeyCode.O)){
             optimize = !optimize;
         }
@@ -81,6 +79,7 @@ public class UnityMaterialsRaytracer : MonoBehaviour
         for(int w = 0; w < render.width; w++){
             for(int h = 0; h < render.height; h++){
 
+                // skip every other line if optimize is enabled
                 if(optimize){
                     if(optimizeCounter == 0){
                         if(w%2==0){
@@ -141,15 +140,18 @@ public class UnityMaterialsRaytracer : MonoBehaviour
                 // default texel color is white so it doesnt affect render if there is no texture
                 Color texelColor = Color.white;
 
-                // skybox code
+
+                /* old skybox code (used with an inverted sphere object as the skybox)
+
                 if(hit.collider.gameObject.tag.Equals("Skybox")){
                     texelColor = texture.GetPixelBilinear(hit.textureCoord.x, hit.textureCoord.y);
                     return texelColor;
                 }
-                
-                float lighting = ComputeLighting(hit.point, normal, -ray.direction, specular);
+
+                */
 
                 
+                float lighting = ComputeLighting(hit.point, normal, -ray.direction, specular);
 
                 // raycast cannot get texture coordinates unless using a mesh collider
                 if(meshCollider != null && texture != null){
@@ -180,17 +182,15 @@ public class UnityMaterialsRaytracer : MonoBehaviour
                 }
                 else if(properties.isMetallic){
 
-                    return (Color.Lerp(coloredTexel * lighting, coloredTexel * reflectionColor * lighting, metallic) + coloredTexel * computeSpecular(hit.point, normal, -ray.direction, specular));
+                    return Color.Lerp(coloredTexel * lighting, coloredTexel * reflectionColor * lighting, metallic) + coloredTexel * computeSpecular(hit.point, normal, -ray.direction, specular);
                 }
-                Color transparencyColor = coloredTexel;
-                
                 return Color.Lerp(coloredTexel * lighting , (coloredTexel * kt) * lighting + (reflectionColor * kr) , smoothness);
                 
             }
         }
 
         //
-        // SKYBOX CODE its a mess i know (and it also doesnt work properly but whatever)
+        // SKYBOX CODE its a mess i know (also it doesnt properly map the texture but it looks good enough so whatever)
         
         Vector3 Va = ray.direction;
         Vector3 Vbx = Vector3.ProjectOnPlane(ray.direction, Vector3.right);
@@ -236,13 +236,6 @@ public class UnityMaterialsRaytracer : MonoBehaviour
 
                 // Specular
                 if(specular != -1){
-                    /*
-                    Vector3 R = ReflectRay(L, N);
-                    float rDotV = Vector3.Dot(R,V);
-                    if(rDotV > 0){
-                        intensity += light.intensity * Mathf.Pow(rDotV/(R.magnitude * V.magnitude), specular);
-                    }
-                    */
                     intensity += intensity * computeSpecular(P, N, V, specular);
                 }
             }
@@ -277,28 +270,6 @@ public class UnityMaterialsRaytracer : MonoBehaviour
 
     Vector3 ReflectRay(Vector3 R, Vector3 N){
         return (2 * N * Vector3.Dot(R, N) - R).normalized;
-    }
-
-    float ComputeAmbientOcclusion(Vector3 point, Vector3 normal){
-            float occlusion = 1.0f;
-            int index = 128;
-
-            for(int i = 0; i < index; i++){
-                Vector3 sampleDir = Random.onUnitSphere;
-                float dot = Vector3.Dot(sampleDir, normal);
-
-                if(dot > 0){
-                    RaycastHit hit;
-                    if(Physics.Raycast(point + normal * bias, sampleDir, out hit)){
-                        occlusion -= 1.0f / index;
-                        if(occlusion < 0.0f) {
-                            occlusion = 0.0f;
-                        }
-                    }
-                }
-            }
-
-        return occlusion;
     }
 
     float CalcFresnelEffect(Vector3 I, Vector3 N, float ior){
@@ -382,6 +353,30 @@ public class UnityMaterialsRaytracer : MonoBehaviour
         Transform hitTransform = hit.collider.transform;
         interpolatedNormal = hitTransform.TransformDirection(interpolatedNormal);
         return interpolatedNormal;
+    }
+
+    // kind of works but very grainy due to random nature, increasing index sort of works
+    // need to make a depth buffer based effect for SSAO
+    float ComputeAmbientOcclusion(Vector3 point, Vector3 normal){
+            float occlusion = 1.0f;
+            int index = 128;
+
+            for(int i = 0; i < index; i++){
+                Vector3 sampleDir = Random.onUnitSphere;
+                float dot = Vector3.Dot(sampleDir, normal);
+
+                if(dot > 0){
+                    RaycastHit hit;
+                    if(Physics.Raycast(point + normal * bias, sampleDir, out hit)){
+                        occlusion -= 1.0f / index;
+                        if(occlusion < 0.0f) {
+                            occlusion = 0.0f;
+                        }
+                    }
+                }
+            }
+
+        return occlusion;
     }
 
     struct MeshData{

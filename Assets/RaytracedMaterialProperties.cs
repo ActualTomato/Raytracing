@@ -9,7 +9,7 @@ public class RaytracedMaterialProperties : MonoBehaviour
     public Texture2D texture;
     public Color surfaceColor = Color.gray;
     [Header("Surface Properties")]
-    [SerializeField, Range(0,1)]
+    [SerializeField, Range(0,1), Tooltip("Transparency is not implemented by UnityMaterialsRaytracer yet.")]
     public float transparency = 0;
     [SerializeField, Range(1,1500)]
     public float specular = 100;
