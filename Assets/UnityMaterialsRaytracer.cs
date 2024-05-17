@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
@@ -5,13 +6,13 @@ using UnityEngine;
 public class UnityMaterialsRaytracer : MonoBehaviour
 {
     [Header("Config")]
-    public Texture2D skybox;
+    public Cubemap skybox;
     [Tooltip("Only updates alternating rows every other frame, kind of like interlacing?")]
     public bool optimize = true;
     public Vector2Int resolution = new Vector2Int(160,90);
     public int maxTraceRecursionDepth = 5;
-    
-    public float bias = 0.01f;
+    [Tooltip("Introduces a tiny offset to raycasts to prevent self intersection artifacts.")]
+    public float bias = 0.0001f;
     public Material cameraBlitMaterial;
 
     // misc variables
@@ -32,7 +33,7 @@ public class UnityMaterialsRaytracer : MonoBehaviour
 
         // Add all MeshCollider data for every object in scene to HashTable at the start to prevent continuous access in GetInterpolatedNormals()
         meshDatas = new Hashtable();
-        foreach(MeshCollider collider in GameObject.FindObjectsOfType(typeof(MeshCollider))){
+        foreach(MeshCollider collider in FindObjectsOfType(typeof(MeshCollider))){
             MeshData data = new MeshData(collider);
             GameObject obj = collider.gameObject;
             meshDatas.Add(obj, data);
@@ -42,17 +43,6 @@ public class UnityMaterialsRaytracer : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        /*
-
-        SKYBOX ANGLE TEST, DISREGARD
-
-        Vector3 Va = mainCamera.transform.forward;
-        Vector3 Vb = Vector3.ProjectOnPlane(mainCamera.transform.forward, Vector3.up);
-        Vector3 Vn = mainCamera.transform.right;
-        print(Mathf.Atan2(Vector3.Dot(Vector3.Cross(Va, Vb), Vn), Vector3.Dot(Va, Vb)));
-        */
-
-
         // toggle if raytracer is enabled
         if(Input.GetKeyDown(KeyCode.Space)){
             int current = cameraBlitMaterial.GetInt("_isEnabled");
@@ -126,7 +116,7 @@ public class UnityMaterialsRaytracer : MonoBehaviour
                 if(!properties){
                     // Return unshaded magenta color (like in minecraft) if material properties are missing
 
-                    //return new Color(216,47,228);
+                    // return new Color(216,47,228); <- this wasnt working so i did the below instead
                     return (Color.blue + (Color.red*0.4f) + (Color.white * 0.5f)) - (Color.white * 0.05f);
                 }
 
@@ -139,17 +129,6 @@ public class UnityMaterialsRaytracer : MonoBehaviour
 
                 // default texel color is white so it doesnt affect render if there is no texture
                 Color texelColor = Color.white;
-
-
-                /* old skybox code (used with an inverted sphere object as the skybox)
-
-                if(hit.collider.gameObject.tag.Equals("Skybox")){
-                    texelColor = texture.GetPixelBilinear(hit.textureCoord.x, hit.textureCoord.y);
-                    return texelColor;
-                }
-
-                */
-
                 
                 float lighting = ComputeLighting(hit.point, normal, -ray.direction, specular);
 
@@ -189,20 +168,37 @@ public class UnityMaterialsRaytracer : MonoBehaviour
             }
         }
 
-        //
-        // SKYBOX CODE its a mess i know (also it doesnt properly map the texture but it looks good enough so whatever)
-        
-        Vector3 Va = ray.direction;
-        Vector3 Vbx = Vector3.ProjectOnPlane(ray.direction, Vector3.right);
-        Vector3 Vnx = mainCamera.transform.up;
-        float x = (Mathf.Atan2(Vector3.Dot(Vector3.Cross(Va, Vbx), Vnx), Vector3.Dot(Va, Vbx)))/(Mathf.PI/2);
+        // return skybox pixels if no object is hit
+        return sampleSkyboxTexture(ray.direction);
+    }
 
-        Vector3 Vby = Vector3.ProjectOnPlane(ray.direction, Vector3.up);
-        Vector3 Vny = mainCamera.transform.right;
-        float y = (Mathf.Atan2(Vector3.Dot(Vector3.Cross(Va, Vby), Vny), Vector3.Dot(Va, Vby)))/(Mathf.PI/2);
-        
-        return skybox.GetPixelBilinear(x+0f, y+0.5f);
-        //return skybox.GetPixelBilinear(Vector3.Angle(ray.direction, Vector3.ProjectOnPlane(ray.direction, Vector3.right)) / 90f, Vector3.Angle(ray.direction, Vector3.ProjectOnPlane(ray.direction, Vector3.up)) / 90f);;
+    Color sampleSkyboxTexture(Vector3 direction){
+        Vector2 uv = getCubemapUV(direction, out CubemapFace face);
+        return skybox.GetPixel(face, (int)(uv.x * skybox.width), (int)(uv.y * skybox.height));
+    }
+
+    Vector2 getCubemapUV(Vector3 v, out CubemapFace face){
+        Vector3 vAbs = new Vector3(Mathf.Abs(v.x), Mathf.Abs(v.y), Mathf.Abs(v.z));
+        float ma;
+        Vector2 uv;
+
+        if(vAbs.z >= vAbs.x && vAbs.z >= vAbs.y){
+            face = v.z < 0.0 ? CubemapFace.NegativeZ : CubemapFace.PositiveZ;
+            ma = 0.5f / vAbs.z;
+            uv = new Vector2(v.z < 0.0 ? -v.x : v.x, -v.y);
+        }
+        else if(vAbs.y >= vAbs.x){
+            face = v.y < 0.0 ? CubemapFace.NegativeY : CubemapFace.PositiveY;
+            ma = 0.5f / vAbs.y;
+            uv = new Vector2(v.x, v.y < 0.0 ? -v.z : v.z);
+        }
+        else{
+            face = v.x < 0.0 ? CubemapFace.NegativeX : CubemapFace.PositiveX;
+            ma = 0.5f / vAbs.x;
+            uv = new Vector2(v.x < 0.0 ? v.z : -v.z, -v.y);
+        }
+
+        return uv * ma + new Vector2(0.5f, 0.5f);
     }
 
     float ComputeLighting(Vector3 P, Vector3 N, Vector3 V, float specular){
@@ -355,14 +351,14 @@ public class UnityMaterialsRaytracer : MonoBehaviour
         return interpolatedNormal;
     }
 
-    // kind of works but very grainy due to random nature, increasing index sort of works
+    // kind of works but very grainy due to random nature, increasing index (samples) helps
     // need to make a depth buffer based effect for SSAO
     float ComputeAmbientOcclusion(Vector3 point, Vector3 normal){
             float occlusion = 1.0f;
             int index = 128;
 
             for(int i = 0; i < index; i++){
-                Vector3 sampleDir = Random.onUnitSphere;
+                Vector3 sampleDir = UnityEngine.Random.onUnitSphere;
                 float dot = Vector3.Dot(sampleDir, normal);
 
                 if(dot > 0){
