@@ -202,7 +202,7 @@ Transform:
   m_GameObject: {fileID: 219539710}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.13, y: 0.85, z: -5.23}
+  m_LocalPosition: {x: -0.13, y: 1.21, z: -6.27}
   m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -220,14 +220,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b70148bdc84fc425180278669424becb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  texture: {fileID: 2800000, guid: 3c2da609ee94c4bc2b4ee2e7ccbd2497, type: 3}
+  texture: {fileID: 0}
   surfaceColor: {r: 0.36356357, g: 0.8113208, b: 0.5049976, a: 1}
   transparency: 0
   specular: 100
   smoothness: 0
   isMetallic: 0
   metallicity: 0
-  isGlass: 0
+  isGlass: 1
   IOR: 1.25
   glassTintAmount: 0
 --- !u!64 &219539716
@@ -424,10 +424,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 79779fcea0e5146e2a6607a0121ecad4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  skybox: {fileID: 2800000, guid: d7a22a80da88647a0bb71bb2f67cd22d, type: 3}
+  skybox: {fileID: 8900000, guid: 74ef1f680b3d94261980fd815fc9228b, type: 3}
   optimize: 1
   resolution: {x: 160, y: 90}
-  maxTraceRecursionDepth: 3
+  maxTraceRecursionDepth: 5
   bias: 0.0001
   cameraBlitMaterial: {fileID: 2100000, guid: 795a2040676204f29912273f3b7d1817, type: 2}
 --- !u!1 &410087039
@@ -828,8 +828,8 @@ MonoBehaviour:
   transparency: 0.1
   specular: 5
   smoothness: 0
-  isMetallic: 0
-  metallicity: 0
+  isMetallic: 1
+  metallicity: 1
   isGlass: 0
   IOR: 1
   glassTintAmount: 0
@@ -1047,6 +1047,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: LiteFPSCounter
       objectReference: {fileID: 0}
+    - target: {fileID: 1813224598300294, guid: 95354847711d363408aebd57a0dc92ae, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4679105028047868, guid: 95354847711d363408aebd57a0dc92ae, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -1149,8 +1153,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b70148bdc84fc425180278669424becb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  texture: {fileID: 0}
-  surfaceColor: {r: 0.4251958, g: 0.6436855, b: 0.8584906, a: 1}
+  texture: {fileID: 2800000, guid: 3c2da609ee94c4bc2b4ee2e7ccbd2497, type: 3}
+  surfaceColor: {r: 1, g: 1, b: 1, a: 1}
   transparency: 0.1
   specular: 5
   smoothness: 0
@@ -1240,7 +1244,7 @@ Transform:
   m_GameObject: {fileID: 1862124306}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.04, y: -0.06, z: -7.1}
+  m_LocalPosition: {x: -1.11, y: -0.06, z: -7.1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
